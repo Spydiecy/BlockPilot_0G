@@ -52,7 +52,7 @@ function HeroSplineBackground() {
   );
 }
 
-function ScreenshotSection({ screenshotRef }: { screenshotRef: React.RefObject<HTMLDivElement> }) {
+function ScreenshotSection({ screenshotRef }: { screenshotRef: React.MutableRefObject<HTMLDivElement | null> }) {
   return (
     <section className="relative z-10 container mx-auto px-4 md:px-6 lg:px-8 -mb-48 mt-24">
       <div ref={screenshotRef} className="bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-gray-700/50 w-full md:w-[80%] lg:w-[70%] mx-auto">
