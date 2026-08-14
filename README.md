@@ -71,6 +71,76 @@ Clean, intuitive design with light and dark themes. The unique hanging bulb togg
 
 ---
 
+## Architecture
+
+BlockPilot is a Next.js App Router application. The frontend never talks to Mistral AI, 0G Storage, or the blockchain directly — everything is routed through Next.js API routes, which keep API keys and the storage/deploy private key server-side.
+
+```mermaid
+flowchart TB
+    subgraph Client["Browser (Next.js App Router pages)"]
+        Audit["/audit\nAI Security Auditor"]
+        Builder["/contract-builder\nTemplates + Deploy"]
+        Docs["/documentor\nDocs Generator"]
+        Tests["/testcase-generator"]
+        Reports["/reports · /report/[hash]"]
+        Wallet["/wallet\nWalletContext"]
+    end
+
+    subgraph API["Next.js API Routes (server-side)"]
+        AIRoute["/api/ai/analyze"]
+        CompileRoute["/api/compile-contract"]
+        UploadRoute["/api/0g-storage/upload"]
+        DownloadRoute["/api/0g-storage/download"]
+        ChainRoute["/api/blockchain"]
+    end
+
+    subgraph External["External Services"]
+        Mistral["Mistral AI\n(mistral-large-latest)"]
+        Solc["solc\n(in-process Solidity compiler)"]
+        ZGStorage["0G Storage Network\n(Indexer + Merkle proofs)"]
+        ZGChain["0G Galileo Testnet\nAuditRegistry contract"]
+    end
+
+    Audit --> AIRoute --> Mistral
+    Audit --> UploadRoute --> ZGStorage
+    Builder --> CompileRoute --> Solc
+    Builder --> ChainRoute
+    Reports --> DownloadRoute --> ZGStorage
+    Reports --> ChainRoute --> ZGChain
+    Wallet -. "ethers.js signer\n(direct RPC calls)" .-> ZGChain
+```
+
+### Module breakdown
+
+| Layer | Module | Responsibility |
+|---|---|---|
+| **Pages** | `src/app/audit/page.tsx` + `src/components/audit/*` | Drives the audit flow: code input → AI analysis → results → on-chain registration → 0G Storage upload |
+| | `src/app/contract-builder/page.tsx`, `templates.ts` | Renders ERC20/NFT templates, compiles them, deploys via the connected wallet, optionally triggers auto-audit |
+| | `src/app/documentor/page.tsx` | Sends contract code to the AI route and renders generated documentation (PDF/Markdown export via `utils/generateDocsPDF.ts`) |
+| | `src/app/testcase-generator/page.tsx` | Generates Hardhat/Foundry/Remix test suites via the AI route |
+| | `src/app/reports/page.tsx`, `src/app/report/[hash]/page.tsx` | Lists on-chain audits (`getAllAudits`) and renders a single report fetched from 0G Storage by hash |
+| | `src/app/wallet/page.tsx`, `src/contexts/WalletContext.tsx` | MetaMask connection, network switching, balance display for the 0G Galileo Testnet |
+| **API routes** | `api/ai/analyze/route.ts` | Server-side call to Mistral AI; builds the audit prompt, normalizes the JSON response, returns a `computeJobId` |
+| | `api/compile-contract/route.ts` | Compiles Solidity source in-process with `solc`, resolving OpenZeppelin imports from `node_modules` |
+| | `api/0g-storage/upload/route.ts`, `download/route.ts` | Thin wrappers around `src/lib/storage.ts` for storing/retrieving audit reports |
+| | `api/blockchain/route.ts` | Read-only `ethers.Contract` calls against the `AuditRegistry` contract (`getAllAudits`, `getAuditorHistory`, `getContractAudits`, `getTotalContracts`) |
+| **Lib / utils** | `src/lib/storage.ts` | Real 0G Storage integration using `@0gfoundation/0g-storage-ts-sdk` (`Indexer`, `MemData`) — uploads/downloads with Merkle proof verification |
+| | `src/utils/contracts.ts` | `AuditRegistry` contract address + ABI |
+| | `src/utils/zeroGStorage.ts` | Client-side helpers that call the storage API routes |
+| | `src/utils/zeroGCompute.ts` | 0G Compute integration scaffold (router/marketplace endpoints); currently a partial integration pending compute credits |
+| | `src/utils/web3.ts`, `src/config/wallet.ts` | Chain config (RPC, explorer, chain ID) and wallet helpers |
+| **On-chain** | `AuditRegistry` (Solidity) | Stores `contractHash`, star rating, severity counts, `reportHash` (0G Storage pointer), auditor address, and `computeJobId` per audit; emits `AuditRegistered` |
+
+### End-to-end audit flow
+
+1. User pastes contract code into `/audit`.
+2. Frontend calls `POST /api/ai/analyze` → Mistral AI returns vulnerabilities, recommendations, gas tips, and a star rating.
+3. The full report JSON is sent to `POST /api/0g-storage/upload` → `src/lib/storage.ts` uploads it to the 0G Storage network and returns a Merkle root hash.
+4. The user's wallet signs a transaction calling `registerAudit(...)` on the `AuditRegistry` contract, storing the star rating, issue counts, and the 0G Storage report hash on-chain.
+5. `/reports` and `/report/[hash]` read audit metadata from the contract (`/api/blockchain`) and the full report body from 0G Storage (`/api/0g-storage/download`), giving every audit a permanent, verifiable, and publicly retrievable record.
+
+---
+
 ## Technology
 
 **Frontend:** Next.js 14, React 18, TypeScript, Tailwind CSS, Framer Motion

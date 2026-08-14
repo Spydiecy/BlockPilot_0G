@@ -176,7 +176,7 @@ const ChainsSupported = () => {
           Currently supporting 0G Galileo Testnet for development and testing
         </p>
         <div className="mt-4 inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-sm">
-          🚀 Mainnet coming soon!
+          🚀 Mainnet-ready, deployment pending
         </div>
       </div>
 
@@ -239,7 +239,7 @@ const ChainsSupported = () => {
         <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-full">
           <span className="text-blue-400 font-mono text-sm">MAINNET</span>
           <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-          <span className="text-gray-300 text-sm">Coming Q2 2026</span>
+          <span className="text-gray-300 text-sm">Ready, deployment pending</span>
         </div>
       </div>
     </div>
@@ -726,7 +726,7 @@ export function HomeSections() {
                     </li>
                     <li className="flex items-start">
                       <span className="text-blue-400 mr-2">•</span>
-                      <span>Mainnet coming Q2 2026</span>
+                      <span>Mainnet-ready, deployment pending</span>
                     </li>
                   </ul>
                 </div>
